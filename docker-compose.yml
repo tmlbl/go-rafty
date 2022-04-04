@@ -1,0 +1,19 @@
+version: '3'
+services:
+  blobert-1:
+    build: .
+    command:
+    - blobert
+    - -bootstrap
+    - -name=blobert-1
+    - -peers=blobert-2,blobert-3
+  blobert-2:
+    build: .
+    command:
+    - blobert
+    - -name=blobert-2
+  blobert-3:
+    build: .
+    command:
+    - blobert
+    - -name=blobert-3
