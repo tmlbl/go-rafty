@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 
@@ -20,17 +19,14 @@ func main() {
 	flag.BoolVar(&bootstrap, "bootstrap", false, "Whether this is the cluster leader")
 	flag.Parse()
 
-	bb, err := blobert.NewBlobert(blobert.Options{
-		Bootstrap: bootstrap,
-		Name:      name,
-		BaseDir:   "/tmp",
-		Peers:     strings.Split(peers, ","),
-	})
-	if err != nil {
-		log.Fatalln(err)
-	}
+	addr := blobert.GetOutboundIP()
+	fmt.Println("Hello from", addr)
 
-	fmt.Println(bb)
+	cluster, err := blobert.NewCluster(strings.Split(peers, ","))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(cluster)
 
 	http.ListenAndServe(":7000", nil)
 }
