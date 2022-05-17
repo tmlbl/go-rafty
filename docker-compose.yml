@@ -6,13 +6,42 @@ services:
     - blobert
     - -name=blobert-1
     - -peers=blobert-2,blobert-3
+    - -dir=/data
+    volumes:
+      - disk-1:/data
   blobert-2:
     build: .
     command:
     - blobert
     - -name=blobert-2
+    - -dir=/data
+    volumes:
+      - disk-1:/data
   blobert-3:
     build: .
     command:
     - blobert
     - -name=blobert-3
+    - -dir=/data
+    volumes:
+      - disk-1:/data
+
+volumes: 
+  disk-1: 
+    driver: local
+    driver_opts:
+      o: "size=100000000"
+      device: tmpfs
+      type: tmpfs
+  disk-2: 
+    driver: local
+    driver_opts:
+      o: "size=100000000"
+      device: tmpfs
+      type: tmpfs
+  disk-3: 
+    driver: local
+    driver_opts:
+      o: "size=100000000"
+      device: tmpfs
+      type: tmpfs
