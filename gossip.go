@@ -7,34 +7,53 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
+	"os"
 	"time"
 )
 
 const rpcPort = 3123
 
 type Cluster struct {
+	dir   string
 	state NodeMap
 }
 
 type NodeInfo struct {
-	IP net.IP
+	Time      time.Time
+	IP        net.IP
+	DiskSpace uint64
 }
 
-func NewNodeInfo() (NodeInfo, error) {
-	addr := GetOutboundIP()
-	return NodeInfo{addr}, nil
+func (c *Cluster) selfNodeInfo() (NodeInfo, error) {
+	return NodeInfo{
+		Time:      time.Now(),
+		IP:        GetOutboundIP(),
+		DiskSpace: GetDiskSpace(c.dir),
+	}, nil
 }
 
 type NodeMap map[string]NodeInfo
 
 func (c *Cluster) NodeInfo(state *NodeMap, merged *NodeMap) error {
-	log.Println("NodeInfo called", state)
 	m := c.state
 	for k, v := range *state {
-		m[k] = v
+		if _, ok := m[k]; !ok {
+			m[k] = v
+		} else {
+			if m[k].Time.Before(v.Time) {
+				log.Println("Received newer info for", v.IP)
+				m[k] = v
+			}
+		}
 	}
 	*merged = m
 	return nil
+}
+
+func (c *Cluster) printPeers() {
+	for _, peer := range c.state {
+		fmt.Println(peer.IP, "disk space:", peer.DiskSpace)
+	}
 }
 
 func (c *Cluster) exchangeState(peer string) error {
@@ -48,8 +67,8 @@ func (c *Cluster) exchangeState(peer string) error {
 		return err
 	}
 
-	fmt.Println("Got merged", merged)
-
+	c.state = merged
+	c.printPeers()
 	return nil
 }
 
@@ -68,19 +87,21 @@ func (c *Cluster) randomPeer() string {
 func (c *Cluster) gossipWorker() {
 	for {
 		time.Sleep(time.Second * 3)
-		info, err := NewNodeInfo()
+		info, err := c.selfNodeInfo()
 		if err != nil {
 			panic(err)
 		}
 		c.state[info.IP.String()] = info
 		peer := c.randomPeer()
-		log.Println("Random peer", peer)
+		// log.Println("Random peer", peer)
 		c.exchangeState(peer)
 	}
 }
 
-func NewCluster(peers []string) (*Cluster, error) {
-	c := Cluster{}
+func NewCluster(dir string, peers []string) (*Cluster, error) {
+	c := Cluster{
+		dir: dir,
+	}
 	err := rpc.Register(&c)
 	rpc.HandleHTTP()
 	if err != nil {
@@ -91,10 +112,17 @@ func NewCluster(peers []string) (*Cluster, error) {
 		return nil, err
 	}
 
-	log.Println("Starting RPC server...")
+	// Ensure data directory exists
+	if _, err = os.Stat(dir); os.IsNotExist(err) {
+		log.Println("Creatinf data directory", dir)
+		err = os.MkdirAll(dir, os.ModeDir)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// Get our own node info
-	info, err := NewNodeInfo()
+	info, err := c.selfNodeInfo()
 	if err != nil {
 		return nil, err
 	}
@@ -102,6 +130,7 @@ func NewCluster(peers []string) (*Cluster, error) {
 		info.IP.String(): info,
 	}
 
+	log.Println("Starting RPC server...")
 	go http.Serve(l, nil)
 
 	// Bootstrap
@@ -114,6 +143,7 @@ func NewCluster(peers []string) (*Cluster, error) {
 		}
 	}
 
+	log.Println("Starting gossip worker...")
 	go c.gossipWorker()
 
 	return &c, nil

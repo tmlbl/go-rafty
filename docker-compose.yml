@@ -4,7 +4,6 @@ services:
     build: .
     command:
     - blobert
-    - -bootstrap
     - -name=blobert-1
     - -peers=blobert-2,blobert-3
   blobert-2:

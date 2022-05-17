@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -11,22 +11,20 @@ import (
 
 var peers string
 var name string
-var bootstrap bool
+var directory string
 
 func main() {
 	flag.StringVar(&peers, "peers", "", "One or more comma-separated cluster peer DNS names")
 	flag.StringVar(&name, "name", "", "The DNS name of this instance")
-	flag.BoolVar(&bootstrap, "bootstrap", false, "Whether this is the cluster leader")
+	flag.StringVar(&directory, "dir", "/tmp/blobert", "Directory to store data")
 	flag.Parse()
 
-	addr := blobert.GetOutboundIP()
-	fmt.Println("Hello from", addr)
-
-	cluster, err := blobert.NewCluster(strings.Split(peers, ","))
+	cluster, err := blobert.NewCluster(directory, strings.Split(peers, ","))
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(cluster)
+
+	log.Println(cluster)
 
 	http.ListenAndServe(":7000", nil)
 }

@@ -3,6 +3,8 @@ package blobert
 import (
 	"log"
 	"net"
+
+	"golang.org/x/sys/unix"
 )
 
 type Blobert struct {
@@ -20,4 +22,16 @@ func GetOutboundIP() net.IP {
 	localAddr := conn.LocalAddr().(*net.TCPAddr)
 
 	return localAddr.IP
+}
+
+func GetDiskSpace(dir string) uint64 {
+	var stat unix.Statfs_t
+
+	err := unix.Statfs(dir, &stat)
+	if err != nil {
+		panic(err)
+	}
+
+	// Available blocks * size per block = available space in bytes
+	return stat.Bavail * uint64(stat.Bsize)
 }
